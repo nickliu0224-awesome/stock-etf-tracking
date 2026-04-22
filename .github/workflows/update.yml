@@ -1,0 +1,37 @@
+name: Update ETF Dividend Data
+
+on:
+  schedule:
+    # 每天台灣時間早上 9:00（UTC 01:00）
+    - cron: "0 1 * * *"
+  workflow_dispatch: # 允許手動觸發
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install playwright
+
+      - name: Install Chromium
+        run: playwright install chromium --with-deps
+
+      - name: Fetch ETF dividend data from TWSE
+        run: python scripts/fetch.py
+
+      - name: Commit updated data
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: auto-update ETF dividend data [skip ci]"
+          file_pattern: "data/dividends.json"
