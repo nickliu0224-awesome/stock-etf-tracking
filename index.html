@@ -37,9 +37,18 @@
 
     /* ── 主表格 ── */
     .table-wrap { overflow-x: auto; background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 20px; }
-    table { border-collapse: collapse; white-space: nowrap; font-size: 12px; width: 100%; }
-    th { background: #1a56db; color: #fff; padding: 8px 10px; font-weight: 600; text-align: center; }
-    td { padding: 6px 10px; border-bottom: 1px solid #eee; text-align: center; }
+    table { border-collapse: collapse; white-space: nowrap; font-size: 12px; width: 100%; table-layout: fixed; }
+    th { background: #1a56db; color: #fff; padding: 8px 6px; font-weight: 600; text-align: center; overflow: hidden; }
+    td { padding: 6px 6px; border-bottom: 1px solid #eee; text-align: center; overflow: hidden; }
+    /* 固定欄寬，確保對齊 */
+    #mainTable th:first-child, #mainTable td:first-child { width: 88px; min-width: 88px; }
+    #mainTable .col-ex   { width: 46px; }
+    #mainTable .col-pay  { width: 46px; }
+    #mainTable .col-div  { width: 52px; }
+    #mainTable .col-shr  { width: 72px; }
+    #mainTable .col-earn { width: 52px; }
+    #mainTable .col-total { width: 58px; }
+    #mainTable .col-del  { width: 36px; }
     tr:last-child td { border-bottom: none; }
     tr.etf-row:hover td { background: #f0f7ff; }
     tr.last-year td { background: #fafafa; color: #999; font-size: 11px; }
@@ -106,14 +115,14 @@
           <th colspan="5" class="th-group q-header">Q2</th>
           <th colspan="5" class="th-group q-header">Q3</th>
           <th colspan="5" class="th-group q-header">Q4</th>
-          <th rowspan="2" style="min-width:60px">年度<br>合計</th>
-          <th rowspan="2"></th>
+          <th rowspan="2" class="col-total">年度<br>合計</th>
+          <th rowspan="2" class="col-del"></th>
         </tr>
         <tr>
-          <th>除息</th><th>發放</th><th>股利</th><th>股數</th><th>可領</th>
-          <th>除息</th><th>發放</th><th>股利</th><th>股數</th><th>可領</th>
-          <th>除息</th><th>發放</th><th>股利</th><th>股數</th><th>可領</th>
-          <th>除息</th><th>發放</th><th>股利</th><th>股數</th><th>可領</th>
+          <th class="col-ex">除息</th><th class="col-pay">發放</th><th class="col-div">股利</th><th class="col-shr">股數</th><th class="col-earn">可領</th>
+          <th class="col-ex">除息</th><th class="col-pay">發放</th><th class="col-div">股利</th><th class="col-shr">股數</th><th class="col-earn">可領</th>
+          <th class="col-ex">除息</th><th class="col-pay">發放</th><th class="col-div">股利</th><th class="col-shr">股數</th><th class="col-earn">可領</th>
+          <th class="col-ex">除息</th><th class="col-pay">發放</th><th class="col-div">股利</th><th class="col-shr">股數</th><th class="col-earn">可領</th>
         </tr>
       </thead>
       <tbody id="mainTbody"></tbody>
@@ -145,9 +154,31 @@
 // ═══════════════════════════════════════
 const LS_KEY = 'etf_tracker_v4';
 
+// 預設追蹤清單（新安裝或資料遺失時使用）
+const DEFAULT_ETFS = [
+  { code: '0056',   shares: '' },
+  { code: '00927',  shares: '' },
+  { code: '00878',  shares: '' },
+  { code: '00891',  shares: '' },
+  { code: '00919',  shares: '' },
+  { code: '00888',  shares: '' },
+];
+
 function loadState() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY)) || { etfs: [] }; }
-  catch { return { etfs: [] }; }
+  try {
+    // 嘗試讀新版 key
+    const s = JSON.parse(localStorage.getItem(LS_KEY));
+    if (s?.etfs?.length > 0) return s;
+    // 嘗試從舊版 app 遷移（etf_tracker_v3）
+    const old = JSON.parse(localStorage.getItem('etf_tracker_v3'));
+    if (old?.etfs?.length > 0) {
+      const migrated = { etfs: old.etfs.map(e => ({ code: e.code, shares: e.shares || '' })) };
+      saveState(migrated);
+      return migrated;
+    }
+  } catch {}
+  // 預設值
+  return { etfs: DEFAULT_ETFS };
 }
 function saveState(s) { localStorage.setItem(LS_KEY, JSON.stringify(s)); }
 
@@ -229,7 +260,7 @@ function render() {
 
     quarters.forEach((q, qi) => {
       const d = getQuarterDiv(divs, yr, q);
-      const upcoming = d && d.exDate >= todayStr;
+      const upcoming = d && d.exDate > todayStr;  // 最後買進日是除息前一天
       const upBadge = upcoming ? ' <span class="badge-up">⏰</span>' : '';
 
       if (d) {
@@ -332,7 +363,7 @@ function renderSearch() {
       // 最新一筆（含未來）
       const last = divs[0] || null;
       // 用日期字串比對，避免時區/時間差問題
-      const upcoming = last && last.exDate >= todayStr;
+      const upcoming = last && last.exDate > todayStr;  // 最後買進日是除息前一天
       // 最新配息金額
       const latestDiv = last?.amount ?? null;
       // 四季合計（近一年）
