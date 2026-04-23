@@ -45,7 +45,7 @@
     #mainTable .col-ex   { width: 46px; }
     #mainTable .col-pay  { width: 46px; }
     #mainTable .col-div  { width: 52px; }
-    #mainTable .col-shr  { width: 72px; }
+    #mainTable .col-shr  { width: 88px; }
     #mainTable .col-earn { width: 52px; }
     #mainTable .col-total { width: 58px; }
     #mainTable .col-del  { width: 36px; }
@@ -62,7 +62,23 @@
     .badge-total { background: #1a56db; color: #fff; border-radius: 4px; padding: 2px 7px; font-size: 12px; font-weight: 700; }
 
     .q-header { background: #3b5bdb; }
-    .input-shares { width: 72px; border: 1px solid #ccc; border-radius: 4px; padding: 3px 5px; font-size: 12px; text-align: center; }
+    /* td 有左右 padding，input 固定寬度會被裁切；改成自適應欄寬 */
+    .input-shares {
+      width: 100%;
+      max-width: 88px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      height: 24px;
+      line-height: 24px;
+      padding: 0 6px;
+      font-size: 12px;
+      text-align: center;
+      box-sizing: border-box;
+      display: block;
+      margin: 0 auto;
+    }
+    /* 股數欄位的 td 左右 padding 會吃掉可用寬度，導致 input 邊框被裁切 */
+    #mainTable td.td-shares { padding-left: 3px; padding-right: 3px; overflow: visible; }
     .tfoot-row td { background: #1a56db; color: #fff; font-weight: 700; }
 
     /* ── 搜尋區 ── */
@@ -72,7 +88,7 @@
 
     .search-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .search-table th { background: #1a56db; color: #fff; padding: 8px 12px; text-align: left; }
-    .search-table td { padding: 10px 12px; border-bottom: 1px solid #eee; }
+    .search-table td { padding: 10px 12px; border-bottom: 1px solid #eee; text-align: left; }
     .search-table tr:last-child td { border-bottom: none; }
     .search-table tr.upcoming-row { background: #f0fdf4; }
     .rank-badge { display: inline-flex; align-items: center; justify-content: center;
@@ -271,7 +287,7 @@ function render() {
           <td>${fmt(d.exDate)}${upBadge}</td>
           <td>${fmt(d.payDate)}</td>
           <td><b>${d.amount?.toFixed(3) ?? '—'}</b></td>
-          <td><input class="input-shares" type="number" min="0" value="${shares||''}"
+          <td class="td-shares"><input class="input-shares" type="number" min="0" value="${shares||''}"
               placeholder="股數" onchange="updateShares('${code}',this.value)" /></td>
           <td>${earn}</td>`;
       } else {
@@ -280,7 +296,7 @@ function render() {
         qHTML += `
           <td>—</td><td>—</td>
           <td style="color:#aaa">${ly ? ly.amount.toFixed(3) : '待公告'}</td>
-          <td><input class="input-shares" type="number" min="0" value="${shares||''}"
+          <td class="td-shares"><input class="input-shares" type="number" min="0" value="${shares||''}"
               placeholder="股數" onchange="updateShares('${code}',this.value)" /></td>
           <td>—</td>`;
       }
