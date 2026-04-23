@@ -210,7 +210,7 @@ function render() {
   const tbody = document.getElementById('mainTbody');
   tbody.innerHTML = '';
   const yr = new Date().getFullYear();
-  const now = new Date();
+  const todayStr = new Date().toISOString().slice(0, 10);
   const quarters = ['q1','q2','q3','q4'];
   let totalByQ = [0,0,0,0];
   let grandTotal = 0;
@@ -229,7 +229,7 @@ function render() {
 
     quarters.forEach((q, qi) => {
       const d = getQuarterDiv(divs, yr, q);
-      const upcoming = d && new Date(d.exDate) >= now;
+      const upcoming = d && d.exDate >= todayStr;
       const upBadge = upcoming ? ' <span class="badge-up">⏰</span>' : '';
 
       if (d) {
@@ -308,32 +308,37 @@ function renderSearch() {
     return;
   }
 
-  const now = new Date();
+  // 日期比對用今天的日期字串（避免時間差造成誤判）
+  const todayStr = new Date().toISOString().slice(0, 10);
   const cutoff = new Date(Date.now() - 365 * 86400e3);
 
-  // 高息關鍵字過濾（排除債券、貨幣）
-  const BOND_KW = ['債', '公債', 'B型', '貨幣', 'REITs', '不動產'];
-  const DIV_KW  = ['高息', '高股息', '收益', '優息', 'ESG', '永續', '配息', '息'];
+  // 高息型 ETF 關鍵字白名單
+  const HIGHYIELD_KW = ['高息', '高股息', '收益', '優息', 'ESG', '永續', '配息', '息低波', '存股', '利率'];
+  // 排除債券、貨幣、科技主題 ETF
+  const EXCLUDE_KW = ['債', '公債', 'B型', '貨幣', 'REITs', '不動產', '半導體', '科技', 'AI',
+                      'MSCI', '台灣50', '北美', '生技', '電動車', '金融', '特選'];
 
   const results = Object.entries(divData.etfs)
     .filter(([code, etf]) => {
-      // 排除明顯的債券/貨幣 ETF
-      if (BOND_KW.some(k => etf.name.includes(k))) return false;
-      return true;
+      if (EXCLUDE_KW.some(k => etf.name.includes(k))) return false;
+      // 名稱包含高息關鍵字，或是已知的高息 ETF 代號
+      const knownHighYield = ['0056','00878','00919','00927','00888','00891','00900',
+                              '00907','00915','00929','00939','00940','00944','00946','00713'];
+      return HIGHYIELD_KW.some(k => etf.name.includes(k)) || knownHighYield.includes(code);
     })
     .map(([code, etf]) => {
       const divs = etf.dividends || [];
       const recent = divs.filter(d => new Date(d.exDate) >= cutoff);
       // 最新一筆（含未來）
       const last = divs[0] || null;
-      const lastDt = last ? new Date(last.exDate) : null;
-      const upcoming = lastDt && lastDt >= now;
+      // 用日期字串比對，避免時區/時間差問題
+      const upcoming = last && last.exDate >= todayStr;
       // 最新配息金額
       const latestDiv = last?.amount ?? null;
       // 四季合計（近一年）
       const annualDiv = recent.slice(0, 4).reduce((s, d) => s + (d.amount || 0), 0);
 
-      return { code, name: etf.name, latestDiv, annualDiv, lastDt, upcoming,
+      return { code, name: etf.name, latestDiv, annualDiv, upcoming,
                exFmt: last ? fmt(last.exDate) : '—',
                payFmt: last ? fmt(last.payDate) : '—' };
     })
