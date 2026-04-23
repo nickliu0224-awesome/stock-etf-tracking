@@ -343,43 +343,31 @@ function renderSearch() {
   const todayStr = new Date().toISOString().slice(0, 10);
   const cutoff = new Date(Date.now() - 365 * 86400e3);
 
-  // 高息型 ETF 關鍵字白名單
-  const HIGHYIELD_KW = ['高息', '高股息', '收益', '優息', 'ESG', '永續', '配息', '息低波', '存股', '利率'];
-  // 排除債券、貨幣、科技主題 ETF
-  const EXCLUDE_KW = ['債', '公債', 'B型', '貨幣', 'REITs', '不動產', '半導體', '科技', 'AI',
-                      'MSCI', '台灣50', '北美', '生技', '電動車', '金融', '特選'];
-
-  const results = Object.entries(divData.etfs)
-    .filter(([code, etf]) => {
-      if (EXCLUDE_KW.some(k => etf.name.includes(k))) return false;
-      // 名稱包含高息關鍵字，或是已知的高息 ETF 代號
-      const knownHighYield = ['0056','00878','00919','00927','00888','00891','00900',
-                              '00907','00915','00929','00939','00940','00944','00946','00713'];
-      return HIGHYIELD_KW.some(k => etf.name.includes(k)) || knownHighYield.includes(code);
-    })
+  const allMapped = Object.entries(divData.etfs)
     .map(([code, etf]) => {
       const divs = etf.dividends || [];
       const recent = divs.filter(d => new Date(d.exDate) >= cutoff);
-      // 最新一筆（含未來）
       const last = divs[0] || null;
-      // 用日期字串比對，避免時區/時間差問題
-      const upcoming = last && last.exDate > todayStr;  // 最後買進日是除息前一天
-      // 最新配息金額
+      const upcoming = last && last.exDate > todayStr;
       const latestDiv = last?.amount ?? null;
-      // 四季合計（近一年）
       const annualDiv = recent.slice(0, 4).reduce((s, d) => s + (d.amount || 0), 0);
-
       return { code, name: etf.name, latestDiv, annualDiv, upcoming,
                exFmt: last ? fmt(last.exDate) : '—',
                payFmt: last ? fmt(last.payDate) : '—' };
     })
-    .filter(r => r.latestDiv != null && r.latestDiv > 0)
-    .sort((a, b) => {
-      // 即將除息優先，再依配息金額降序
-      if (a.upcoming !== b.upcoming) return a.upcoming ? -1 : 1;
-      return (b.latestDiv ?? 0) - (a.latestDiv ?? 0);
-    })
-    .slice(0, 10);
+    .filter(r => r.latestDiv != null && r.latestDiv > 0);
+
+  // Pool 1：除息日已公布且還未到的（即將除息），依配息金額降序
+  const upcomingETFs = allMapped
+    .filter(r => r.upcoming)
+    .sort((a, b) => b.latestDiv - a.latestDiv);
+
+  // Pool 2：其餘 ETF，依配息金額降序
+  const topDivETFs = allMapped
+    .filter(r => !r.upcoming)
+    .sort((a, b) => b.latestDiv - a.latestDiv);
+
+  const results = [...upcomingETFs, ...topDivETFs].slice(0, 10);
 
   const upcomingCount = results.filter(r => r.upcoming).length;
   const totalEtfs = Object.keys(divData.etfs).length;
