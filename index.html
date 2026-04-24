@@ -41,7 +41,7 @@
     th { background: #1a56db; color: #fff; padding: 8px 6px; font-weight: 600; text-align: center; overflow: hidden; }
     td { padding: 6px 6px; border-bottom: 1px solid #eee; text-align: center; overflow: hidden; }
     /* 固定欄寬，確保對齊 */
-    #mainTable th:first-child, #mainTable td:first-child { width: 88px; min-width: 88px; }
+    #mainTable th:first-child, #mainTable td:first-child { width: 110px; min-width: 110px; }
     #mainTable .col-ex   { width: 46px; }
     #mainTable .col-pay  { width: 46px; }
     #mainTable .col-div  { width: 52px; }
@@ -62,6 +62,7 @@
     .badge-total { background: #1a56db; color: #fff; border-radius: 4px; padding: 2px 7px; font-size: 12px; font-weight: 700; }
 
     .q-header { background: #3b5bdb; }
+    .q-start { border-left: 2px solid #93c5fd !important; }
     /* td 有左右 padding，input 固定寬度會被裁切；改成自適應欄寬 */
     .input-shares {
       width: 100%;
@@ -136,9 +137,9 @@
         </tr>
         <tr>
           <th class="col-ex">除息</th><th class="col-pay">發放</th><th class="col-div">股利</th><th class="col-shr">股數</th><th class="col-earn">可領</th>
-          <th class="col-ex">除息</th><th class="col-pay">發放</th><th class="col-div">股利</th><th class="col-shr">股數</th><th class="col-earn">可領</th>
-          <th class="col-ex">除息</th><th class="col-pay">發放</th><th class="col-div">股利</th><th class="col-shr">股數</th><th class="col-earn">可領</th>
-          <th class="col-ex">除息</th><th class="col-pay">發放</th><th class="col-div">股利</th><th class="col-shr">股數</th><th class="col-earn">可領</th>
+          <th class="col-ex q-start">除息</th><th class="col-pay">發放</th><th class="col-div">股利</th><th class="col-shr">股數</th><th class="col-earn">可領</th>
+          <th class="col-ex q-start">除息</th><th class="col-pay">發放</th><th class="col-div">股利</th><th class="col-shr">股數</th><th class="col-earn">可領</th>
+          <th class="col-ex q-start">除息</th><th class="col-pay">發放</th><th class="col-div">股利</th><th class="col-shr">股數</th><th class="col-earn">可領</th>
         </tr>
       </thead>
       <tbody id="mainTbody"></tbody>
@@ -157,8 +158,8 @@
 
   <!-- 搜尋區 -->
   <div class="search-section">
-    <div class="search-title">🔍 季配型ETF 配息排行搜尋</div>
-    <div class="search-desc">依最新季配息金額排序，⏰ 即將除息優先顯示</div>
+    <div class="search-title">🔍 即將除息的季配 ETF</div>
+    <div class="search-desc">除息日已公布且還沒到，依配息金額降序排列</div>
     <div class="info-bar" id="searchInfo"></div>
     <div id="searchResults"><div class="loading-msg">⏳ 資料載入中...</div></div>
   </div>
@@ -284,7 +285,7 @@ function render() {
         yearTotal += d.amount || 0;
         if (shares) totalByQ[qi] += d.amount * shares;
         qHTML += `
-          <td>${fmt(d.exDate)}${upBadge}</td>
+          <td class="${qi > 0 ? 'q-start' : ''}">${fmt(d.exDate)}${upBadge}</td>
           <td>${fmt(d.payDate)}</td>
           <td><b>${d.amount?.toFixed(3) ?? '—'}</b></td>
           <td class="td-shares"><input class="input-shares" type="number" min="0" value="${shares||''}"
@@ -294,7 +295,7 @@ function render() {
         // 查去年同季估算
         const ly = getQuarterDiv(divs, yr-1, q);
         qHTML += `
-          <td>—</td><td>—</td>
+          <td class="${qi > 0 ? 'q-start' : ''}">—</td><td>—</td>
           <td style="color:#aaa">${ly ? ly.amount.toFixed(3) : '待公告'}</td>
           <td class="td-shares"><input class="input-shares" type="number" min="0" value="${shares||''}"
               placeholder="股數" onchange="updateShares('${code}',this.value)" /></td>
@@ -355,11 +356,12 @@ function renderSearch() {
     return;
   }
 
-  // 日期比對用今天的日期字串（避免時間差造成誤判）
   const todayStr = new Date().toISOString().slice(0, 10);
   const cutoff = new Date(Date.now() - 365 * 86400e3);
 
-  const allMapped = Object.entries(divData.etfs)
+  // 只取季配 ETF（近一年有 2~6 筆）且除息日還沒到的
+  const results = Object.entries(divData.etfs)
+    .filter(([, etf]) => isQuarterly(etf.dividends || []))
     .map(([code, etf]) => {
       const divs = etf.dividends || [];
       const recent = divs.filter(d => new Date(d.exDate) >= cutoff);
@@ -371,28 +373,15 @@ function renderSearch() {
                exFmt: last ? fmt(last.exDate) : '—',
                payFmt: last ? fmt(last.payDate) : '—' };
     })
-    .filter(r => r.latestDiv != null && r.latestDiv > 0);
-
-  // Pool 1：除息日已公布且還未到的（即將除息），依配息金額降序
-  const upcomingETFs = allMapped
-    .filter(r => r.upcoming)
+    .filter(r => r.upcoming && r.latestDiv != null && r.latestDiv > 0)
     .sort((a, b) => b.latestDiv - a.latestDiv);
 
-  // Pool 2：其餘 ETF，依配息金額降序
-  const topDivETFs = allMapped
-    .filter(r => !r.upcoming)
-    .sort((a, b) => b.latestDiv - a.latestDiv);
-
-  const results = [...upcomingETFs, ...topDivETFs].slice(0, 10);
-
-  const upcomingCount = results.filter(r => r.upcoming).length;
   const totalEtfs = Object.keys(divData.etfs).length;
 
-  infoEl.innerHTML = `✓ TWSE 資料（${totalEtfs} 支 ETF）。年化殖利率 = 近四季配息合計 ÷ 現在股價 × 100%` +
-    (upcomingCount > 0 ? `　<span class="highlight">⏰ 即將除息 ${upcomingCount} 支優先顯示</span>` : '');
+  infoEl.innerHTML = `✓ TWSE 資料（${totalEtfs} 支 ETF）。依配息金額降序，除息日還沒到才顯示。`;
 
   if (!results.length) {
-    el.innerHTML = '<div class="error-msg">⚠ 尚無符合條件的 ETF</div>';
+    el.innerHTML = '<div class="error-msg">⏳ 目前無即將除息的季配 ETF，等各家公告 Q3 除息日後自動更新</div>';
     return;
   }
 
