@@ -3,15 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>季配息 ETF 配息追蹤器</title>
+  <title>季配息 ETF 追蹤器</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: #f0f4f8; color: #222; font-size: 14px; }
+    body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: #0f172a; color: #e5e7eb; font-size: 14px; }
+    .controls-bar, .table-wrap, .search-section, .industry-section, .add-industry-bar, .stock-card { color: #1f2937; }
     .app { max-width: 1400px; margin: 0 auto; padding: 16px; }
 
-    h1 { font-size: 20px; color: #1a56db; margin-bottom: 4px; }
-    h2 { font-size: 16px; color: #1a56db; margin-bottom: 10px; }
-    .subtitle { color: #666; font-size: 12px; margin-bottom: 14px; }
+    h1 { font-size: 20px; color: #60a5fa; margin-bottom: 4px; }
+    h2 { font-size: 16px; color: #60a5fa; margin-bottom: 10px; }
+    .subtitle { color: #cbd5e1; font-size: 12px; margin-bottom: 14px; }
 
     .btn { padding: 7px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
     .btn-primary { background: #1a56db; color: #fff; }
@@ -39,19 +40,29 @@
     .table-wrap { overflow-x: auto; background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 20px; }
     table { border-collapse: collapse; white-space: nowrap; font-size: 12px; width: 100%; table-layout: fixed; }
     th { background: #1a56db; color: #fff; padding: 8px 6px; font-weight: 600; text-align: center; overflow: hidden; }
-    td { padding: 6px 6px; border-bottom: 1px solid #eee; text-align: center; overflow: hidden; }
+    td { padding: 6px 6px; border-bottom: 1px solid #eee; text-align: center; overflow: hidden; color: #1f2937; }
     /* 固定欄寬，確保對齊 */
     #mainTable th:first-child, #mainTable td:first-child { width: 110px; min-width: 110px; }
     #mainTable .col-ex   { width: 46px; }
     #mainTable .col-pay  { width: 46px; }
     #mainTable .col-div  { width: 52px; }
-    #mainTable .col-shr  { width: 88px; }
+    #mainTable .col-shr  { width: 110px; }
     #mainTable .col-earn { width: 52px; }
     #mainTable .col-total { width: 58px; }
-    #mainTable .col-del  { width: 36px; }
+    #mainTable .col-del  { width: 90px; }
+    .row-actions { display: inline-flex; gap: 2px; }
+    .row-actions button {
+      border: none; background: #e5e7eb; color: #374151;
+      width: 22px; height: 22px; border-radius: 4px;
+      cursor: pointer; font-size: 11px; padding: 0;
+    }
+    .row-actions button:hover { background: #d1d5db; }
+    .row-actions button:disabled { opacity: 0.3; cursor: not-allowed; }
+    .row-actions .btn-del { background: #fee2e2; color: #dc2626; }
+    .row-actions .btn-del:hover { background: #fecaca; }
     tr:last-child td { border-bottom: none; }
     tr.etf-row:hover td { background: #f0f7ff; }
-    tr.last-year td { background: #fafafa; color: #999; font-size: 11px; }
+    tr.last-year td { background: #fafafa; color: #4b5563; font-size: 11px; }
 
     .th-group { background: #1e40af; }
     .etf-link { color: #1a56db; font-weight: 700; text-decoration: none; font-size: 13px; }
@@ -64,9 +75,12 @@
     .q-header { background: #3b5bdb; }
     .q-start { border-left: 2px solid #93c5fd !important; }
     /* td 有左右 padding，input 固定寬度會被裁切；改成自適應欄寬 */
+    .input-shares::-webkit-outer-spin-button,
+    .input-shares::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .input-shares { -moz-appearance: textfield; }
     .input-shares {
       width: 100%;
-      max-width: 88px;
+      max-width: 110px;
       border: 1px solid #ccc;
       border-radius: 4px;
       height: 24px;
@@ -104,6 +118,47 @@
     .loading-msg { color: #d97706; padding: 20px; text-align: center; }
     .error-msg   { color: #dc2626; padding: 20px; text-align: center; }
 
+    /* ── 頁籤 ── */
+    .tabs { display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 2px solid #334155; }
+    .tab-btn {
+      background: transparent; border: none; padding: 10px 18px; cursor: pointer;
+      font-size: 14px; font-weight: 600; color: #cbd5e1;
+      border-bottom: 3px solid transparent; margin-bottom: -2px;
+    }
+    .tab-btn:hover { color: #60a5fa; }
+    .tab-btn.active { color: #60a5fa; border-bottom-color: #60a5fa; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ── 產業動態 ── */
+    .industry-section { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); padding: 16px; margin-bottom: 16px; }
+    .industry-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .industry-title { font-size: 18px; font-weight: 700; color: #1a56db; flex: 1; }
+    .industry-desc { font-size: 12px; color: #6b7280; font-weight: 400; margin-left: 8px; }
+    .btn-edit-desc { background: transparent; border: none; cursor: pointer; color: #9ca3af; font-size: 13px; padding: 2px 6px; margin-left: 4px; }
+    .btn-edit-desc:hover { color: #1a56db; }
+    .stock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px; }
+    .stock-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; position: relative; }
+    .stock-card .stock-code { font-weight: 700; font-size: 14px; color: #1a56db; }
+    .stock-card .stock-code a { color: inherit; text-decoration: none; }
+    .stock-card .stock-code a:hover { text-decoration: underline; }
+    .stock-card .stock-name { font-size: 12px; color: #555; margin-bottom: 4px; }
+    .stock-card .stock-price { font-size: 18px; font-weight: 700; }
+    .stock-card .stock-change { font-size: 12px; }
+    .stock-card .stock-change.up { color: #dc2626; }
+    .stock-card .stock-change.down { color: #16a34a; }
+    .stock-card .stock-change.flat { color: #374151; }
+    .stock-card .btn-x {
+      position: absolute; top: 4px; right: 4px;
+      background: transparent; border: none; cursor: pointer;
+      color: #4b5563; font-size: 14px; padding: 2px 6px;
+    }
+    .stock-card .btn-x:hover { color: #dc2626; }
+    .add-stock-bar { display: flex; gap: 6px; }
+    .add-stock-bar input { flex: 1; max-width: 140px; border: 1px solid #ccc; border-radius: 6px; padding: 6px 10px; font-size: 13px; }
+    .add-industry-bar { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); padding: 12px; display: flex; gap: 8px; }
+    .add-industry-bar input { flex: 1; max-width: 200px; border: 1px solid #ccc; border-radius: 6px; padding: 6px 10px; font-size: 13px; }
+
     @media (max-width: 600px) {
       .app { padding: 10px; }
       .controls-bar { flex-direction: column; align-items: flex-start; }
@@ -112,8 +167,17 @@
 </head>
 <body>
 <div class="app">
-  <h1>📈 季配息 ETF 配息追蹤器</h1>
+  <h1>📈 季配息 ETF 追蹤器</h1>
   <p class="subtitle">資料來源：台灣證交所 ETFortune · 每日自動更新 · <span id="dataStatus">載入中...</span></p>
+
+  <!-- 頁籤 -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('dividend')">📊 配息追蹤</button>
+    <button class="tab-btn" onclick="switchTab('industry')">🏭 產業動態</button>
+  </div>
+
+  <!-- 配息追蹤頁 -->
+  <div class="tab-content active" id="tab-dividend">
 
   <!-- 控制列 -->
   <div class="controls-bar">
@@ -159,10 +223,22 @@
   <!-- 搜尋區 -->
   <div class="search-section">
     <div class="search-title">🔍 即將除息的季配 ETF</div>
-    <div class="search-desc">除息日已公布且還沒到，依配息金額降序排列</div>
     <div class="info-bar" id="searchInfo"></div>
     <div id="searchResults"><div class="loading-msg">⏳ 資料載入中...</div></div>
   </div>
+
+  </div><!-- /tab-dividend -->
+
+  <!-- 產業動態頁 -->
+  <div class="tab-content" id="tab-industry">
+    <div id="priceStatus" class="subtitle" style="margin-bottom:10px"></div>
+    <div id="industriesContainer"><div class="loading-msg">⏳ 載入股價中...</div></div>
+    <div class="add-industry-bar">
+      <input type="text" id="newIndustryName" placeholder="新增產業（如：矽光子）" />
+      <button class="btn btn-primary" onclick="addIndustry()">＋ 新增產業</button>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -181,21 +257,27 @@ const DEFAULT_ETFS = [
   { code: '00888',  shares: '' },
 ];
 
+function normalizeShares(sh) {
+  // 將 shares 統一成 { q1, q2, q3, q4 } 結構
+  if (sh && typeof sh === 'object') return { q1: sh.q1 ?? '', q2: sh.q2 ?? '', q3: sh.q3 ?? '', q4: sh.q4 ?? '' };
+  // 舊格式：單一數字 → 套用到全部四季
+  return { q1: sh || '', q2: sh || '', q3: sh || '', q4: sh || '' };
+}
+
 function loadState() {
+  let raw = null;
   try {
-    // 嘗試讀新版 key
-    const s = JSON.parse(localStorage.getItem(LS_KEY));
-    if (s?.etfs?.length > 0) return s;
-    // 嘗試從舊版 app 遷移（etf_tracker_v3）
-    const old = JSON.parse(localStorage.getItem('etf_tracker_v3'));
-    if (old?.etfs?.length > 0) {
-      const migrated = { etfs: old.etfs.map(e => ({ code: e.code, shares: e.shares || '' })) };
-      saveState(migrated);
-      return migrated;
+    raw = JSON.parse(localStorage.getItem(LS_KEY));
+    if (!raw?.etfs?.length) {
+      const old = JSON.parse(localStorage.getItem('etf_tracker_v3'));
+      if (old?.etfs?.length) raw = old;
     }
   } catch {}
-  // 預設值
-  return { etfs: DEFAULT_ETFS };
+  if (!raw?.etfs?.length) raw = { etfs: DEFAULT_ETFS };
+  // 把 shares 統一成新結構
+  const migrated = { etfs: raw.etfs.map(e => ({ code: e.code, shares: normalizeShares(e.shares) })) };
+  saveState(migrated);
+  return migrated;
 }
 function saveState(s) { localStorage.setItem(LS_KEY, JSON.stringify(s)); }
 
@@ -263,7 +345,7 @@ function render() {
   let totalByQ = [0,0,0,0];
   let grandTotal = 0;
 
-  state.etfs.forEach(({ code, shares }) => {
+  state.etfs.forEach(({ code, shares }, rowIdx) => {
     const divs = getDivsForCode(code);
     const name = getNameForCode(code);
     const lyDivs = divs.filter(d => new Date(d.exDate).getFullYear() === yr - 1);
@@ -277,28 +359,28 @@ function render() {
 
     quarters.forEach((q, qi) => {
       const d = getQuarterDiv(divs, yr, q);
-      const upcoming = d && d.exDate > todayStr;  // 最後買進日是除息前一天
+      const upcoming = d && d.exDate > todayStr;
       const upBadge = upcoming ? ' <span class="badge-up">⏰</span>' : '';
+      const qShares = shares?.[q] || '';
 
       if (d) {
-        const earn = shares ? (d.amount * shares).toFixed(0) : '—';
+        const earn = qShares ? (d.amount * qShares).toFixed(0) : '—';
         yearTotal += d.amount || 0;
-        if (shares) totalByQ[qi] += d.amount * shares;
+        if (qShares) totalByQ[qi] += d.amount * qShares;
         qHTML += `
           <td class="${qi > 0 ? 'q-start' : ''}">${fmt(d.exDate)}${upBadge}</td>
           <td>${fmt(d.payDate)}</td>
           <td><b>${d.amount?.toFixed(3) ?? '—'}</b></td>
-          <td class="td-shares"><input class="input-shares" type="number" min="0" value="${shares||''}"
-              placeholder="股數" onchange="updateShares('${code}',this.value)" /></td>
+          <td class="td-shares"><input class="input-shares" type="number" min="0" value="${qShares}"
+              placeholder="股數" onchange="updateShares('${code}','${q}',this.value)" /></td>
           <td>${earn}</td>`;
       } else {
-        // 查去年同季估算
         const ly = getQuarterDiv(divs, yr-1, q);
         qHTML += `
           <td class="${qi > 0 ? 'q-start' : ''}">—</td><td>—</td>
-          <td style="color:#aaa">${ly ? ly.amount.toFixed(3) : '待公告'}</td>
-          <td class="td-shares"><input class="input-shares" type="number" min="0" value="${shares||''}"
-              placeholder="股數" onchange="updateShares('${code}',this.value)" /></td>
+          <td style="color:#4b5563">${ly ? ly.amount.toFixed(3) : '待公告'}</td>
+          <td class="td-shares"><input class="input-shares" type="number" min="0" value="${qShares}"
+              placeholder="股數" onchange="updateShares('${code}','${q}',this.value)" /></td>
           <td>—</td>`;
       }
     });
@@ -312,7 +394,11 @@ function render() {
       </td>
       ${qHTML}
       <td>${yearTotal > 0 ? yearTotal.toFixed(3) : '—'}</td>
-      <td><button class="btn btn-danger" style="padding:3px 8px;font-size:11px" onclick="removeEtf('${code}')">✕</button></td>`;
+      <td><div class="row-actions">
+        <button onclick="moveEtf(${rowIdx},-1)" ${rowIdx===0?'disabled':''} title="上移">▲</button>
+        <button onclick="moveEtf(${rowIdx},1)" ${rowIdx===state.etfs.length-1?'disabled':''} title="下移">▼</button>
+        <button class="btn-del" onclick="removeEtf('${code}')" title="移除">✕</button>
+      </div></td>`;
     tbody.appendChild(tr);
 
     // 去年列（參考）
@@ -324,7 +410,7 @@ function render() {
         const d = getQuarterDiv(divs, yr-1, q);
         lyHTML += `<td>${fmt(d?.exDate)}</td><td>${fmt(d?.payDate)}</td><td>${d ? d.amount.toFixed(3) : '—'}</td><td></td><td></td>`;
       });
-      trly.innerHTML = `<td style="color:#aaa;font-size:10px">去年</td>${lyHTML}<td>${lyTotal.toFixed(3)}</td><td></td>`;
+      trly.innerHTML = `<td style="color:#4b5563;font-size:10px">去年</td>${lyHTML}<td>${lyTotal.toFixed(3)}</td><td></td>`;
       tbody.appendChild(trly);
     }
   });
@@ -378,7 +464,7 @@ function renderSearch() {
 
   const totalEtfs = Object.keys(divData.etfs).length;
 
-  infoEl.innerHTML = `✓ TWSE 資料（${totalEtfs} 支 ETF）。依配息金額降序，除息日還沒到才顯示。`;
+  infoEl.innerHTML = `除息日已公布且還沒到，依配息金額降序排列（TWSE 資料共 ${totalEtfs} 支 ETF）`;
 
   if (!results.length) {
     el.innerHTML = '<div class="error-msg">⏳ 目前無即將除息的季配 ETF，等各家公告 Q3 除息日後自動更新</div>';
@@ -411,7 +497,7 @@ function renderSearch() {
           </tr>`).join('')}
       </tbody>
     </table>
-    <p style="font-size:11px;color:#888;margin-top:8px">
+    <p style="font-size:11px;color:#4b5563;margin-top:8px">
       △ 資料來源 TWSE ETFortune，每日早上 9 點自動更新。
     </p>`;
 }
@@ -426,7 +512,7 @@ function addEtf() {
   if (state.etfs.find(e => e.code === code)) {
     alert(`${code} 已在清單中`); input.value = ''; return;
   }
-  state.etfs.push({ code, shares: '' });
+  state.etfs.push({ code, shares: { q1:'', q2:'', q3:'', q4:'' } });
   saveState(state);
   render();
   input.value = '';
@@ -438,9 +524,21 @@ function removeEtf(code) {
   render();
 }
 
-function updateShares(code, val) {
+function moveEtf(idx, dir) {
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= state.etfs.length) return;
+  [state.etfs[idx], state.etfs[newIdx]] = [state.etfs[newIdx], state.etfs[idx]];
+  saveState(state);
+  render();
+}
+
+function updateShares(code, q, val) {
   const etf = state.etfs.find(e => e.code === code);
-  if (etf) { etf.shares = val ? parseInt(val) : ''; saveState(state); render(); }
+  if (!etf) return;
+  if (typeof etf.shares !== 'object' || etf.shares === null) etf.shares = { q1:'', q2:'', q3:'', q4:'' };
+  etf.shares[q] = val ? parseInt(val) : '';
+  saveState(state);
+  render();
 }
 
 function resetAll() {
@@ -453,6 +551,178 @@ function resetAll() {
 document.getElementById('codeInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') addEtf();
 });
+
+// ═══════════════════════════════════════
+//  頁籤切換
+// ═══════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'industry' && !stockPriceData) loadStockPrices().then(renderIndustries);
+}
+
+// ═══════════════════════════════════════
+//  產業動態 — 狀態 & 預設值
+// ═══════════════════════════════════════
+const INDUSTRY_LS_KEY = 'industry_categories_v1';
+const DEFAULT_INDUSTRIES = [
+  { name: 'PCB', desc: '印刷電路板，電子產品的骨架；AI 伺服器需要高層數高階板，是 AI 供應鏈關鍵', stocks: ['2383','2368','5469','6213','3044','8358','3037'] },
+  { name: 'ABF', desc: 'IC 載板，連接晶片與主機板；AI GPU 需要超大尺寸 ABF 載板，缺貨已久', stocks: ['3037','8046','6269'] },
+];
+let industries = loadIndustries();
+let stockPriceData = null;
+
+function loadIndustries() {
+  let arr = null;
+  try {
+    const s = JSON.parse(localStorage.getItem(INDUSTRY_LS_KEY));
+    if (Array.isArray(s) && s.length > 0) arr = s;
+  } catch {}
+  if (!arr) arr = JSON.parse(JSON.stringify(DEFAULT_INDUSTRIES));
+  // 遷移：補上預設產業的 desc
+  arr.forEach(ind => {
+    if (!ind.desc) {
+      const def = DEFAULT_INDUSTRIES.find(d => d.name === ind.name);
+      if (def?.desc) ind.desc = def.desc;
+    }
+  });
+  return arr;
+}
+function saveIndustries() {
+  localStorage.setItem(INDUSTRY_LS_KEY, JSON.stringify(industries));
+}
+
+// ═══════════════════════════════════════
+//  抓 TWSE 全市場前一交易日收盤
+// ═══════════════════════════════════════
+async function loadStockPrices() {
+  try {
+    const r = await fetch('./data/stock_prices.json?t=' + Date.now());
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    stockPriceData = data.stocks || {};
+    // 顯示交易日（民國 1150424 → 2026/04/24）
+    const td = data.tradeDate || '';
+    const el = document.getElementById('priceStatus');
+    if (td.length === 7 && el) {
+      const y = parseInt(td.slice(0, 3)) + 1911;
+      const m = td.slice(3, 5);
+      const d = td.slice(5, 7);
+      el.textContent = `📅 股價資料：${y}/${m}/${d} 收盤（每日早上 9 點自動更新）`;
+    } else if (el) {
+      el.textContent = '📅 股價資料載入完成';
+    }
+  } catch (e) {
+    console.error('股價載入失敗', e);
+    stockPriceData = {};
+    const el = document.getElementById('priceStatus');
+    if (el) el.textContent = '⚠ 股價資料載入失敗';
+  }
+  return stockPriceData;
+}
+
+// ═══════════════════════════════════════
+//  渲染產業動態
+// ═══════════════════════════════════════
+function renderIndustries() {
+  const c = document.getElementById('industriesContainer');
+  if (!stockPriceData) {
+    c.innerHTML = '<div class="loading-msg">⏳ 載入股價中...</div>';
+    return;
+  }
+  if (industries.length === 0) {
+    c.innerHTML = '<div class="error-msg">尚無產業，請於下方新增</div>';
+    return;
+  }
+  c.innerHTML = industries.map((ind, idx) => `
+    <div class="industry-section">
+      <div class="industry-header">
+        <div class="industry-title">🏭 ${ind.name}${ind.desc ? `<span class="industry-desc">${ind.desc}</span>` : ''}
+          <button class="btn-edit-desc" onclick="editIndustryDesc(${idx})" title="編輯說明">✎</button>
+        </div>
+        <button class="btn btn-primary" onclick="searchNews('${ind.name}')">🔍 搜尋新聞</button>
+        <button class="btn btn-danger" onclick="removeIndustry(${idx})">✕ 移除產業</button>
+      </div>
+      <div class="stock-grid">
+        ${ind.stocks.map(code => renderStockCard(idx, code)).join('') || '<div style="color:#4b5563;font-size:13px">尚無個股</div>'}
+      </div>
+      <div class="add-stock-bar">
+        <input type="text" placeholder="股票代號（如2383）" id="newStock-${idx}" />
+        <button class="btn btn-ghost" onclick="addStock(${idx})">＋ 新增個股</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderStockCard(idx, code) {
+  const s = stockPriceData[code];
+  if (!s) {
+    return `<div class="stock-card">
+      <button class="btn-x" onclick="removeStock(${idx},'${code}')">✕</button>
+      <div class="stock-code"><a href="https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=${code}" target="_blank">${code}</a></div>
+      <div class="stock-name">查無資料</div>
+      <div class="stock-price" style="color:#4b5563">—</div>
+    </div>`;
+  }
+  const dir = s.change > 0 ? 'up' : s.change < 0 ? 'down' : 'flat';
+  const arrow = s.change > 0 ? '▲' : s.change < 0 ? '▼' : '—';
+  const pct = s.close - s.change > 0 ? (s.change / (s.close - s.change) * 100).toFixed(2) : '0.00';
+  return `<div class="stock-card">
+    <button class="btn-x" onclick="removeStock(${idx},'${code}')">✕</button>
+    <div class="stock-code"><a href="https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=${code}" target="_blank">${code}</a></div>
+    <div class="stock-name">${s.name}</div>
+    <div class="stock-price">${s.close.toFixed(2)}</div>
+    <div class="stock-change ${dir}">${arrow} ${Math.abs(s.change).toFixed(2)} (${pct}%)</div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════
+//  操作函數（產業動態）
+// ═══════════════════════════════════════
+function addIndustry() {
+  const input = document.getElementById('newIndustryName');
+  const name = input.value.trim();
+  if (!name) return;
+  if (industries.some(i => i.name === name)) { alert(`${name} 已存在`); return; }
+  industries.push({ name, stocks: [] });
+  saveIndustries();
+  renderIndustries();
+  input.value = '';
+}
+function removeIndustry(idx) {
+  if (!confirm(`確定移除「${industries[idx].name}」？`)) return;
+  industries.splice(idx, 1);
+  saveIndustries();
+  renderIndustries();
+}
+function editIndustryDesc(idx) {
+  const cur = industries[idx].desc || '';
+  const next = prompt(`編輯「${industries[idx].name}」說明：`, cur);
+  if (next === null) return;
+  industries[idx].desc = next.trim();
+  saveIndustries();
+  renderIndustries();
+}
+function addStock(idx) {
+  const input = document.getElementById('newStock-' + idx);
+  const code = input.value.trim();
+  if (!code) return;
+  if (industries[idx].stocks.includes(code)) { alert(`${code} 已在此產業中`); return; }
+  industries[idx].stocks.push(code);
+  saveIndustries();
+  renderIndustries();
+}
+function removeStock(idx, code) {
+  industries[idx].stocks = industries[idx].stocks.filter(c => c !== code);
+  saveIndustries();
+  renderIndustries();
+}
+function searchNews(industry) {
+  const url = `https://news.google.com/search?q=${encodeURIComponent(industry + ' 台股')}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
+  window.open(url, '_blank');
+}
 
 // ═══════════════════════════════════════
 //  初始化

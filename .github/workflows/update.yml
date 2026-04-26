@@ -30,8 +30,13 @@ jobs:
       - name: Fetch ETF dividend data from TWSE
         run: python scripts/fetch.py
 
+      - name: Fetch stock prices from TWSE
+        run: python scripts/fetch_prices.py
+
       - name: Commit updated data
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "chore: auto-update ETF dividend data [skip ci]"
-          file_pattern: "data/dividends.json"
+          commit_message: "chore: auto-update data [skip ci]"
+          file_pattern: |
+            data/dividends.json
+            data/stock_prices.json
