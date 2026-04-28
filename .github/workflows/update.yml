@@ -2,8 +2,8 @@ name: Update ETF Dividend Data
 
 on:
   schedule:
-    # 每天台灣時間早上 9:00（UTC 01:00）
-    - cron: "0 1 * * *"
+    # 每天台灣時間早上 6:00（UTC 22:00 前一天）
+    - cron: "0 22 * * *"
   workflow_dispatch: # 允許手動觸發
 
 jobs:
