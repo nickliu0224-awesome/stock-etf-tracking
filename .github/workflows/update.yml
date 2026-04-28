@@ -32,6 +32,7 @@ jobs:
 
       - name: Fetch stock prices from TWSE
         run: python scripts/fetch_prices.py
+        continue-on-error: true
 
       - name: Commit updated data
         uses: stefanzweifel/git-auto-commit-action@v5

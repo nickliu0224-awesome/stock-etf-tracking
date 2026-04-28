@@ -5,19 +5,33 @@
 import json
 import os
 import sys
+import time
 import urllib.request
 import ssl
 from datetime import datetime, timezone
+from http.client import IncompleteRead
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "stock_prices.json")
 TWSE_URL = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL"
 TPEX_URL = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes"
 
 
-def fetch_json(url, ctx):
+def fetch_json(url, ctx, retries=3, delay=5):
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req, context=ctx, timeout=30) as r:
-        return json.loads(r.read().decode("utf-8"))
+    for attempt in range(1, retries + 1):
+        try:
+            with urllib.request.urlopen(req, context=ctx, timeout=60) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except IncompleteRead as e:
+            print(f"  IncompleteRead（第 {attempt} 次），{delay}s 後重試... ({e})")
+            if attempt == retries:
+                raise
+            time.sleep(delay)
+        except Exception as e:
+            print(f"  錯誤（第 {attempt} 次），{delay}s 後重試... ({e})")
+            if attempt == retries:
+                raise
+            time.sleep(delay)
 
 
 def main():
