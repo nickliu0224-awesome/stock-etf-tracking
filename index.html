@@ -7,7 +7,7 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: #0f172a; color: #e5e7eb; font-size: 14px; }
-    .controls-bar, .table-wrap, .search-section, .industry-section, .add-industry-bar, .stock-card { color: #1f2937; }
+    .controls-bar, .table-wrap, .search-section, .industry-section, .add-industry-bar { color: #1f2937; }
     .app { max-width: 1400px; margin: 0 auto; padding: 16px; }
 
     h1 { font-size: 20px; color: #7dafc9; margin-bottom: 4px; }
@@ -137,23 +137,23 @@
     .industry-desc { font-size: 12px; color: #6b7280; font-weight: 400; margin-left: 8px; }
     .btn-edit-desc { background: transparent; border: none; cursor: pointer; color: #9ca3af; font-size: 13px; padding: 2px 6px; margin-left: 4px; }
     .btn-edit-desc:hover { color: #1a56db; }
-    .stock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px; }
-    .stock-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; position: relative; }
-    .stock-card .stock-code { font-weight: 700; font-size: 14px; color: #1a56db; }
-    .stock-card .stock-code a { color: inherit; text-decoration: none; }
-    .stock-card .stock-code a:hover { text-decoration: underline; }
-    .stock-card .stock-name { font-size: 12px; color: #555; margin-bottom: 4px; }
-    .stock-card .stock-price { font-size: 18px; font-weight: 700; }
-    .stock-card .stock-change { font-size: 12px; }
-    .stock-card .stock-change.up { color: #dc2626; }
-    .stock-card .stock-change.down { color: #16a34a; }
-    .stock-card .stock-change.flat { color: #374151; }
-    .stock-card .btn-x {
-      position: absolute; top: 4px; right: 4px;
-      background: transparent; border: none; cursor: pointer;
-      color: #4b5563; font-size: 14px; padding: 2px 6px;
-    }
-    .stock-card .btn-x:hover { color: #dc2626; }
+    .stock-list { width: auto; min-width: 360px; border-collapse: collapse; margin-bottom: 12px; font-size: 13px; }
+    .stock-list thead th { background: #f3f4f6; color: #374151; font-weight: 600; padding: 6px 10px; border-bottom: 2px solid #e5e7eb; text-align: left; }
+    .stock-list thead th.sl-price, .stock-list thead th.sl-change { text-align: right; }
+    .stock-list td { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; color: #1f2937; }
+    .stock-list tr:last-child td { border-bottom: none; }
+    .stock-list .sl-code { font-weight: 700; color: #3a7abf; white-space: nowrap; }
+    .stock-list .sl-code a { color: inherit; text-decoration: none; }
+    .stock-list .sl-code a:hover { text-decoration: underline; }
+    .stock-list .sl-name { color: #555; }
+    .stock-list .sl-price { font-weight: 700; text-align: right; white-space: nowrap; }
+    .stock-list .sl-change { text-align: right; white-space: nowrap; }
+    .stock-list .sl-change.up { color: #dc2626; }
+    .stock-list .sl-change.down { color: #16a34a; }
+    .stock-list .sl-change.flat { color: #374151; }
+    .stock-list .sl-del { text-align: center; width: 28px; }
+    .stock-list .btn-x { background: transparent; border: none; cursor: pointer; color: #9ca3af; font-size: 14px; padding: 0 4px; }
+    .stock-list .btn-x:hover { color: #dc2626; }
     .add-stock-bar { display: flex; gap: 6px; }
     .add-stock-bar input { flex: 1; max-width: 140px; border: 1px solid #ccc; border-radius: 6px; padding: 6px 10px; font-size: 13px; }
     .add-industry-bar { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); padding: 12px; display: flex; gap: 8px; }
@@ -644,9 +644,24 @@ function renderIndustries() {
         <button class="btn btn-primary" onclick="searchNews('${ind.name}')">🔍 搜尋新聞</button>
         <button class="btn btn-danger" onclick="removeIndustry(${idx})">✕ 移除產業</button>
       </div>
-      <div class="stock-grid">
-        ${ind.stocks.map(code => renderStockCard(idx, code)).join('') || '<div style="color:#4b5563;font-size:13px">尚無個股</div>'}
-      </div>
+      <table class="stock-list">
+        <thead>
+          <tr>
+            <th class="sl-code">代號</th>
+            <th class="sl-name">名稱</th>
+            <th class="sl-price">收盤</th>
+            <th class="sl-change">漲跌幅</th>
+            <th class="sl-price">開盤</th>
+            <th class="sl-price">最高</th>
+            <th class="sl-price">最低</th>
+            <th class="sl-price">成交量(張)</th>
+            <th class="sl-del"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${ind.stocks.length ? ind.stocks.map(code => renderStockRow(idx, code)).join('') : '<tr><td colspan="5" style="color:#4b5563">尚無個股</td></tr>'}
+        </tbody>
+      </table>
       <div class="add-stock-bar">
         <input type="text" placeholder="股票代號（如2383）" id="newStock-${idx}" />
         <button class="btn btn-ghost" onclick="addStock(${idx})">＋ 新增個股</button>
@@ -655,26 +670,35 @@ function renderIndustries() {
   `).join('');
 }
 
-function renderStockCard(idx, code) {
+function renderStockRow(idx, code) {
   const s = stockPriceData[code];
+  const link = `<a href="https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=${code}" target="_blank">${code}</a>`;
   if (!s) {
-    return `<div class="stock-card">
-      <button class="btn-x" onclick="removeStock(${idx},'${code}')">✕</button>
-      <div class="stock-code"><a href="https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=${code}" target="_blank">${code}</a></div>
-      <div class="stock-name">查無資料</div>
-      <div class="stock-price" style="color:#4b5563">—</div>
-    </div>`;
+    return `<tr>
+      <td class="sl-code">${link}</td>
+      <td class="sl-name">查無資料</td>
+      <td class="sl-price" style="color:#4b5563">—</td>
+      <td class="sl-change flat">—</td>
+      <td class="sl-price">—</td><td class="sl-price">—</td><td class="sl-price">—</td><td class="sl-price">—</td>
+      <td class="sl-del"><button class="btn-x" onclick="removeStock(${idx},'${code}')">✕</button></td>
+    </tr>`;
   }
   const dir = s.change > 0 ? 'up' : s.change < 0 ? 'down' : 'flat';
   const arrow = s.change > 0 ? '▲' : s.change < 0 ? '▼' : '—';
   const pct = s.close - s.change > 0 ? (s.change / (s.close - s.change) * 100).toFixed(2) : '0.00';
-  return `<div class="stock-card">
-    <button class="btn-x" onclick="removeStock(${idx},'${code}')">✕</button>
-    <div class="stock-code"><a href="https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=${code}" target="_blank">${code}</a></div>
-    <div class="stock-name">${s.name}</div>
-    <div class="stock-price">${s.close.toFixed(2)}</div>
-    <div class="stock-change ${dir}">${arrow} ${Math.abs(s.change).toFixed(2)} (${pct}%)</div>
-  </div>`;
+  const fmt = v => v != null ? v.toFixed(2) : '—';
+  const vol = s.volume != null ? s.volume.toLocaleString() : '—';
+  return `<tr>
+    <td class="sl-code">${link}</td>
+    <td class="sl-name">${s.name}</td>
+    <td class="sl-price">${s.close.toFixed(2)}</td>
+    <td class="sl-change ${dir}">${arrow} ${Math.abs(s.change).toFixed(2)} (${pct}%)</td>
+    <td class="sl-price">${fmt(s.open)}</td>
+    <td class="sl-price">${fmt(s.high)}</td>
+    <td class="sl-price">${fmt(s.low)}</td>
+    <td class="sl-price">${vol}</td>
+    <td class="sl-del"><button class="btn-x" onclick="removeStock(${idx},'${code}')">✕</button></td>
+  </tr>`;
 }
 
 // ═══════════════════════════════════════

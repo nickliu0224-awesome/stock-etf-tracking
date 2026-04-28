@@ -45,6 +45,10 @@ def main():
 
     stocks = {}
 
+    def _f(v):
+        try: return float(v)
+        except: return None
+
     print(f"抓取上市 {TWSE_URL} ...")
     twse = fetch_json(TWSE_URL, ctx)
     for s in twse:
@@ -54,7 +58,15 @@ def main():
             change = float(str(s.get("Change", "")).strip() or 0)
         except ValueError:
             continue
-        stocks[code] = {"name": s.get("Name", "").strip(), "close": close, "change": change}
+        vol = s.get("TradeVolume", "").replace(",", "")
+        stocks[code] = {
+            "name": s.get("Name", "").strip(),
+            "close": close, "change": change,
+            "open": _f(s.get("OpeningPrice", "")),
+            "high": _f(s.get("HighestPrice", "")),
+            "low":  _f(s.get("LowestPrice", "")),
+            "volume": int(vol) // 1000 if vol.isdigit() else None,
+        }
     print(f"  上市 {len(twse)} 支")
 
     print(f"抓取上櫃 {TPEX_URL} ...")
@@ -67,7 +79,15 @@ def main():
             change = float(str(s.get("Change", "")).strip() or 0)
         except ValueError:
             continue
-        stocks[code] = {"name": s.get("CompanyName", "").strip(), "close": close, "change": change}
+        vol = str(s.get("TradingShares", "")).replace(",", "")
+        stocks[code] = {
+            "name": s.get("CompanyName", "").strip(),
+            "close": close, "change": change,
+            "open": _f(s.get("Open", "")),
+            "high": _f(s.get("High", "")),
+            "low":  _f(s.get("Low", "")),
+            "volume": int(vol) // 1000 if vol.isdigit() else None,
+        }
         tpex_count += 1
     print(f"  上櫃 {tpex_count} 支")
 
