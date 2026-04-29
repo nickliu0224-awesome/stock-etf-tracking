@@ -451,7 +451,7 @@ function renderSearch() {
       const divs = etf.dividends || [];
       const recent = divs.filter(d => new Date(d.exDate) >= cutoff);
       const last = divs[0] || null;
-      const upcoming = last && last.exDate > todayStr;
+      const upcoming = last && last.exDate > todayStr && last.payDate > todayStr;
       const latestDiv = last?.amount ?? null;
       const annualDiv = recent.slice(0, 4).reduce((s, d) => s + (d.amount || 0), 0);
       return { code, name: etf.name, latestDiv, annualDiv, upcoming,
