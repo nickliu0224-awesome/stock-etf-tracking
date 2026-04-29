@@ -35,6 +35,10 @@
     #dataStatus { font-size: 12px; color: #666; margin-left: 4px; }
     #dataStatus.ok  { color: #16a34a; }
     #dataStatus.err { color: #dc2626; }
+    .btn-refresh { background: transparent; border: 1px solid #cbd5e1; border-radius: 4px; color: #94a3b8; font-size: 14px; padding: 1px 7px; cursor: pointer; margin-left: 6px; }
+    .btn-refresh:hover { color: #7dafc9; border-color: #7dafc9; }
+    .btn-refresh.spinning { animation: spin 0.8s linear infinite; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
     /* ── 主表格 ── */
     .table-wrap { overflow-x: auto; background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 20px; }
@@ -168,7 +172,7 @@
 <body>
 <div class="app">
   <h1>📈 季配息 ETF 追蹤器</h1>
-  <p class="subtitle">資料來源：台灣證交所 ETFortune · 每日自動更新 · <span id="dataStatus">載入中...</span></p>
+  <p class="subtitle">資料來源：台灣證交所 ETFortune · 每日自動更新 · <span id="dataStatus">載入中...</span> <button class="btn-refresh" onclick="refreshAll()" title="重新載入資料">↻</button></p>
 
   <!-- 頁籤 -->
   <div class="tabs">
@@ -559,7 +563,7 @@ function switchTab(name) {
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   event.target.classList.add('active');
   document.getElementById('tab-' + name).classList.add('active');
-  if (name === 'industry' && !stockPriceData) loadStockPrices().then(renderIndustries);
+  if (name === 'industry') loadRealtimePrices().then(renderIndustries);
 }
 
 // ═══════════════════════════════════════
@@ -572,6 +576,8 @@ const DEFAULT_INDUSTRIES = [
 ];
 let industries = loadIndustries();
 let stockPriceData = null;
+const WORKER_URL = 'https://twse-proxy.ashin524.workers.dev/';
+let realtimePrices = {};
 
 function loadIndustries() {
   let arr = null;
@@ -591,6 +597,28 @@ function loadIndustries() {
 }
 function saveIndustries() {
   localStorage.setItem(INDUSTRY_LS_KEY, JSON.stringify(industries));
+}
+
+// ═══════════════════════════════════════
+//  即時報價（Cloudflare Worker → TWSE MIS）
+// ═══════════════════════════════════════
+async function loadRealtimePrices() {
+  const allCodes = [...new Set(industries.flatMap(ind => ind.stocks))];
+  const el = document.getElementById('priceStatus');
+  if (!allCodes.length) { if (el) el.textContent = ''; return; }
+  if (el) el.textContent = '⏳ 載入即時報價...';
+  try {
+    const r = await fetch(WORKER_URL + '?codes=' + allCodes.join(',') + '&t=' + Date.now());
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    realtimePrices = data.stocks || {};
+    const isRealtime = Object.values(realtimePrices).some(s => s.realtime);
+    const timeStr = new Date(data.ts).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+    if (el) el.textContent = `${isRealtime ? '📡 即時報價' : '📅 收盤價'} · ${timeStr} 更新`;
+  } catch (e) {
+    console.error('即時報價失敗', e);
+    if (el) el.textContent = '⚠ 即時報價失敗';
+  }
 }
 
 // ═══════════════════════════════════════
@@ -627,7 +655,7 @@ async function loadStockPrices() {
 // ═══════════════════════════════════════
 function renderIndustries() {
   const c = document.getElementById('industriesContainer');
-  if (!stockPriceData) {
+  if (false) {
     c.innerHTML = '<div class="loading-msg">⏳ 載入股價中...</div>';
     return;
   }
@@ -671,7 +699,7 @@ function renderIndustries() {
 }
 
 function renderStockRow(idx, code) {
-  const s = stockPriceData[code];
+  const s = realtimePrices[code];
   const link = `<a href="https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=${code}" target="_blank">${code}</a>`;
   if (!s) {
     return `<tr>
@@ -683,15 +711,17 @@ function renderStockRow(idx, code) {
       <td class="sl-del"><button class="btn-x" onclick="removeStock(${idx},'${code}')">✕</button></td>
     </tr>`;
   }
+  const price = s.price ?? s.close;
   const dir = s.change > 0 ? 'up' : s.change < 0 ? 'down' : 'flat';
   const arrow = s.change > 0 ? '▲' : s.change < 0 ? '▼' : '—';
-  const pct = s.close - s.change > 0 ? (s.change / (s.close - s.change) * 100).toFixed(2) : '0.00';
+  const prev = s.prev ?? (price - s.change);
+  const pct = prev > 0 ? (s.change / prev * 100).toFixed(2) : '0.00';
   const fmt = v => v != null ? v.toFixed(2) : '—';
   const vol = s.volume != null ? s.volume.toLocaleString() : '—';
   return `<tr>
     <td class="sl-code">${link}</td>
     <td class="sl-name">${s.name}</td>
-    <td class="sl-price">${s.close.toFixed(2)}</td>
+    <td class="sl-price">${price.toFixed(2)}</td>
     <td class="sl-change ${dir}">${arrow} ${Math.abs(s.change).toFixed(2)} (${pct}%)</td>
     <td class="sl-price">${fmt(s.open)}</td>
     <td class="sl-price">${fmt(s.high)}</td>
@@ -745,6 +775,23 @@ function removeStock(idx, code) {
 function searchNews(industry) {
   const url = `https://news.google.com/search?q=${encodeURIComponent(industry + ' 台股')}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
   window.open(url, '_blank');
+}
+
+// ═══════════════════════════════════════
+//  刷新
+// ═══════════════════════════════════════
+async function refreshAll() {
+  const btn = document.querySelector('.btn-refresh');
+  if (btn) btn.classList.add('spinning');
+  stockPriceData = null;
+  realtimePrices = {};
+  await loadDivData();
+  await loadStockPrices();
+  await loadRealtimePrices();
+  render();
+  renderSearch();
+  renderIndustries();
+  if (btn) btn.classList.remove('spinning');
 }
 
 // ═══════════════════════════════════════
